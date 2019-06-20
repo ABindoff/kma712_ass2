@@ -1,0 +1,14 @@
+---
+title: "KMA712 Assignment 2"
+author: "Bindoff, A."
+output: html_document
+---
+
+`r Sys.time()`
+
+Extension granted
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+

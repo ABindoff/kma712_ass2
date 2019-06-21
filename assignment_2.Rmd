@@ -12,3 +12,207 @@ Extension granted
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+# Example data
+library(microbiome)
+library(dplyr)
+library(table1)
+
+data(dietswap)
+
+# Make sure we use functions from correct package
+transform <- microbiome::transform
+
+# Just use prevalent taxa to speed up examples
+# (not absolute counts used in this example)
+pseq <- core(dietswap, detection = 50, prevalence = 50/100)
+
+# Pick sample subset
+library(phyloseq)
+pseq2 <- subset_samples(pseq, group == "HE" & timepoint.within.group == 1)
+
+# Normal western adults
+data(atlas1006)
+pseq3 <- atlas1006 %>%
+          subset_samples(DNA_extraction_method == "r") %>%
+          aggregate_taxa(level = "Phylum") %>%  
+          microbiome::transform(transform = "compositional")
+
+```
+
+```{r}
+otu <- tibble::rownames_to_column(as.data.frame(t(otu_table(pseq2)))) %>%
+  mutate(sample = rowname) %>%
+  select(-rowname)
+
+d <- as_tibble(sample_data(pseq2)) %>% 
+  left_join(otu)
+
+label(d$sex) <- "Gender"
+label(d$bmi_group) <- "BMI category"
+```
+
+```{r}
+
+table1(~ sex +  bmi_group | nationality, d)
+
+```
+
+```{r}
+#devtools::install_github("hrbrmstr/hrbrthemes")
+library(hrbrthemes)
+library(gcookbook)
+library(tidyverse)
+
+
+shuffle <- function(x, set.seed = 42){
+  set.seed(set.seed)
+  sample(x, length(x), replace = FALSE)
+}
+
+pal <- shuffle(scico::scico(n = 17, palette ='berlin'), set.seed = 99)
+```
+
+```{r}
+theme_set(theme_bw(21))
+p <- pseq3 %>%
+    plot_composition(sample.sort = "Bacteroidetes", otu.sort = "abundance", alpha = 0.3) +
+         # Set custom colors
+          scale_fill_manual(values = default_colors("Phylum")[taxa(pseq3)]) +
+  facet_wrap(~Tax, scales = "free_y") +
+  theme(text = element_text(size = 8),
+    axis.text.x = element_blank())
+
+
+print(p)
+
+```
+
+
+```{r}
+
+# Limit the analysis on core taxa and specific sample group
+p <- plot_composition(pseq2,
+              taxonomic.level = "Genus",
+                      sample.sort = "nationality",
+                      x.label = "nationality") +
+     guides(fill = guide_legend(ncol = 1)) +
+   scale_fill_manual(values = pal) +
+     scale_y_percent() +
+     labs(x = "Samples", y = "Relative abundance (%)",
+                                   title = "Relative abundance data",
+                                   subtitle = "",
+                                   caption = "") + 
+    # theme_ipsum(grid="Y") +
+  theme(text = element_text(size = 8),
+    axis.text.x = element_text(size = 6, angle = 90),
+        legend.key.height = unit(2, "mm"))
+print(p)  
+```
+
+```{r}
+
+# Averaged by group
+p <- plot_composition(pseq2,
+                      average_by = "bmi_group", transform = "compositional") +
+  scale_fill_manual(values = pal) +
+  theme(text = element_text(size = 10),
+        legend.key.height = unit(4, "mm"))
+print(p)
+```
+
+```{r}
+p <- plot_composition(microbiome::transform(pseq, "compositional"),
+                    plot.type = "heatmap",
+                    sample.sort = "neatmap",
+            otu.sort = "neatmap") +
+  scico::scale_fill_scico(palette = "bilbao", name = "") +
+  theme(text = element_text(size = 8),
+        axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 1))
+print(p)
+```
+
+```{r}
+library(Rtsne)
+A <- apply(d[, 9:25], 2, scale)
+m1 <- Rtsne(A, dims = 2, perplexity = 5, max_iter = 5000, verbose = F)
+B1 <- as.data.frame(cbind(d, m1$Y))
+ggplot(B1, aes(x = `1`, y = `2`, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
+  geom_point(size = 4) +
+  scico::scale_colour_scico(palette = "vik") +
+  theme_minimal()
+```
+
+```{r}
+m1 <- Rtsne(A, dims = 2, perplexity = 5, max_iter = 1000, verbose = F)
+
+perplexity_iter <- function(x, p){
+  Rtsne(x, dims = 2, perplexity = p, max_iter = 1000, verbose = FALSE)
+}
+
+
+m <- lapply(c(5,7,9,11), function(p) perplexity_iter(x = A, p = p))
+
+extract_ys <- function(m){
+  perplexity <- m$perplexity
+  Y1 <- m$Y[,1]
+  Y2 <- m$Y[,2]
+  cbind(d, Y1, Y2, perplexity)
+}
+
+k <- bind_rows(lapply(m, extract_ys))
+
+```
+
+```{r}
+library(gganimate)
+ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
+  geom_point(size = 4) +
+  scico::scale_colour_scico(palette = "vik") +
+  theme_minimal() +
+  transition_states(perplexity) +
+  ease_aes('linear') +
+  view_follow() +
+  labs(title = 'Perplexity = {closest_state}')
+
+```
+
+```{r}
+
+D <- dist(A)
+m2 <- cmdscale(D, k = 2)
+B2 <- as.data.frame(cbind(d, m2))
+
+ggplot(B2, aes(x = `1`, y = `2`, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
+  geom_point(size = 4) +
+  scico::scale_colour_scico(palette = "vik") +
+  theme_minimal()
+
+```
+
+
+```{r}
+
+h <- data.frame(d$nationality, A)
+
+m3 <- MASS::lda(d.nationality ~ ., h)
+m4 <- e1071::svm(d.nationality ~., h)
+
+
+h$LD1 <- predict(m3, h)$x
+h$lda_class <- predict(m3, h)$class
+h$svm <- predict(m4, h)
+h$bmi_group <- d$bmi_group
+
+xtabs(~lda_class + d.nationality, h)
+xtabs(~svm + d.nationality, h)
+
+
+ggplot(h, aes(y = LD1, x = d.nationality, colour = bmi_group)) +
+  ggbeeswarm::geom_quasirandom() +
+  theme_minimal()
+
+```
+
+

@@ -17,6 +17,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 library(microbiome)
 library(dplyr)
 library(table1)
+library(captioner)
 
 data(dietswap)
 
@@ -34,7 +35,10 @@ shuffle <- function(x, set.seed = 42){
   sample(x, length(x), replace = FALSE)
 }
 
-pal <- shuffle(scico::scico(n = 17, palette ='berlin'), set.seed = 99)
+#pal <- shuffle(scico::scico(n = 17, palette ='berlin'), set.seed = 99)
+pal <- shuffle(c(scico::scico(n = 11, palette ='berlin'),
+         scico::scico(n = 11, palette ='hawaii')), set.seed = 99)
+
 ```
 
 ## Background {.tabset}
@@ -43,19 +47,18 @@ Colon cancer is a leading cause of cancer death in North America and Europe. Des
 
 In order to investigate differences in gut microbiota potentially caused by diet between AAM and AFR, O'Keefe and colleagues collected stool samples before and after a dietary intervention in age and sex matched samples of healthy AAM and AFR participants [@o2015fat]. A HITChip phylogenetic microarray was used to profile microbiota composition.  
 
-For this reproducible workflow we downloaded data from the O'Keefe study as part of the `microbiome` R package [@lahti2019]. Data were prepared loosely following the tutorial [Introduction to the microbiome R package](http://microbiome.github.io/microbiome/Composition.html), filtering on pre-intervention and taking the first sample collected within each group in order to avoid pseudo-replication considerations. We also filtered on the most prevalent taxa to reduce the data. 
+For this reproducible workflow we obtained data from the O'Keefe study, which was included in the `microbiome` R package [@lahti2019]. Data were prepared loosely following the tutorial [Introduction to the microbiome R package](http://microbiome.github.io/microbiome/Composition.html), filtering on pre-intervention and taking the first sample collected within each group in order to avoid pseudo-replication considerations. We also filtered on the most prevalent taxa to reduce the data in order to aid interpretation and reduce computation time.  
 
+```{r echo = TRUE}
+# Use most prevalent taxa to speed up examples
+# detection threshold >50 otus, prevalence > .4
+pseq <- core(dietswap, detection = 50, prevalence = .4)
 
-```{r}
-# Just use prevalent taxa to speed up examples
-# (not absolute counts used in this example)
-pseq <- core(dietswap, detection = 50, prevalence = 50/100)
-
-# Pick sample subset
+# choose sample subset, first sample collection pre-intervention
 library(phyloseq)
 pseq2 <- subset_samples(pseq, group == "HE" & timepoint.within.group == 1)
 
-# Normal western adults
+# normative western adults for comparison
 data(atlas1006)
 pseq3 <- atlas1006 %>%
           subset_samples(DNA_extraction_method == "r") %>%
@@ -65,6 +68,10 @@ pseq3 <- atlas1006 %>%
 ```
 
 ```{r}
+# working with phyloseq objects is not difficult but 
+# for some tasks without `phyloseq` or `microbiome` methods
+# a data.frame or tibble can be helpful for a novice like me
+
 otu <- tibble::rownames_to_column(as.data.frame(t(otu_table(pseq2)))) %>%
   mutate(sample = rowname) %>%
   select(-rowname)
@@ -74,17 +81,35 @@ d <- as_tibble(sample_data(pseq2)) %>%
 
 label(d$sex) <- "Gender"
 label(d$bmi_group) <- "BMI category"
+
+table_nums <- captioner::captioner(prefix = "Table")
+tab.1 <- table_nums(name = "tab_1",
+                    caption = "Demographics, African American (AAM) and rural African (AFR) participants")
+fig_nums <- captioner::captioner(prefix = "Figure")
+fig.1 <- fig_nums(name = "fig_1",
+                  caption = "Abundance of each taxa, sorted by bacteroidetes")
+
+fig.2 <- fig_nums(name = "fig_2",
+                  caption = "Abundance of genera in each sample, sorted by study groups")
+
+fig.3 <- fig_nums(name = "fig_3",
+                  caption = "Average abundance of genera for each BMI group")
+
 ```
 
-```{r}
+`r table_nums('tab_1')`
+
+```{r table_1, fig.cap = tab.1}
 
 table1(~ sex +  bmi_group | nationality, d)
 
 ```
+  
+  
+`r fig_nums('fig_1')`
 
-Sorting by the abundance of bacteroidetes, plot the abundance of each taxa.  
 
-```{r}
+```{r fig_1, fig.cap = fig.1}
 theme_set(theme_bw(21))
 p <- pseq3 %>%
     plot_composition(sample.sort = "Bacteroidetes", otu.sort = "abundance", alpha = 0.3) +
@@ -99,9 +124,11 @@ print(p)
 
 ```
 
-Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of taxa, particularly for Prevotella melaninogenica, which was more abundant in the AFR group.  
+Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of genera. Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
 
-```{r}
+`r fig_nums('fig_2')`
+
+```{r genera, fig.cap = fig.2}
 
 # Limit the analysis on core taxa and specific sample group
 p <- plot_composition(pseq2,
@@ -122,9 +149,11 @@ p <- plot_composition(pseq2,
 print(p)  
 ```
 
-Averaging abundance by BMI group showed a greater prevalence of Prevotella melaninogenica in lean participants, but Table 1 shows more lean rural Africans than African Americans.  
+Averaging abundance by BMI group shows a greater abundance of *Prevotella melaninogenica* in lean participants, but Table 1 shows more lean rural Africans than African Americans so this pattern must be interpreted with caution.  
 
-```{r}
+`r fig_nums('fig_3')`  
+
+```{r bmi_group, fig.cap = fig.3}
 
 # Averaged by group
 p <- plot_composition(pseq2,
@@ -135,31 +164,30 @@ p <- plot_composition(pseq2,
 print(p)
 ```
 
-A heatmap of microbiome composition shows some other clusters of abundance of bacteroides within groups.  
+*Ordination* reduces high-dimension data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. In `r fig_nums('fig_3')`, *samples* are sorted along a single dimension using non-metric multi-dimensional scaling (NMDS) (on Bray-Curtis distances; see `help(neatsort)` for available methods in the `microbiome` R package), then plotted as a heatmap of abundances. This shows some distinct clusters of *Prevotella melaninogenica*, *Bacteroides vulgatus*, and *Oscillospira guillermondii*. However, no comparison between groups can be easily made from this.  
 
 ```{r}
-p <- plot_composition(microbiome::transform(pseq, "compositional"),
+p <- plot_composition(microbiome::transform(pseq2, "compositional"),
                     plot.type = "heatmap",
-                    sample.sort = "neatmap",
-            otu.sort = "neatmap") +
+                    otu_sort = "neatmap") +
   scico::scale_fill_scico(palette = "bilbao", name = "") +
   theme(text = element_text(size = 8),
         axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
-        axis.text.y = element_text(size = 1))
+        axis.text.y = element_text(size = 5))
 print(p)
 ```
+
+Continuing with the ordination theme, we now compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE). Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
 
 ```{r}
 library(Rtsne)
 library(vegan)
 
-# distance matrix
+# distance matrix (sample similarities)
 ps <- microbiome::transform(pseq2, "hellinger")
-
-# sample similarities
 dm <- vegdist(otu_table(ps), "euclidean")
 
-m1 <- Rtsne(dm, dims = 2, perplexity = 5, max_iter = 1000, verbose = F)
+m1 <- Rtsne(dm, dims = 2, perplexity = 7, theta = 0.1, max_iter = 5000, verbose = F)
 
 proj <- m1$Y
 
@@ -168,16 +196,17 @@ rownames(proj) <- rownames(otu_table(ps))
 proj <- tibble::rownames_to_column(as.data.frame(proj))
 
 ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
-  geom_text(nudge_y = -1.5) +
+  geom_text(nudge_y = -1.5, size = 2.5) +
   geom_point()
 ```
 
+Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only abundance of taxa in each sample. In fig______ we plot the ordination using symbols for nationality and shade with a genera of interest.  
 
 ```{r}
-A <- apply(d[, c(9:25)], 2, scale)  # standardize by taxa
+A <- apply(d[, c(9:25)], 2, scale)  # standardize across taxa
 
 set.seed(42)
-m2 <- Rtsne(A, dims = 2, perplexity = 5, max_iter = 2000, verbose = F)
+m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = 0.05, max_iter = 5000, verbose = F)
 
 B1 <- data.frame(d,
                  m2$Y)
@@ -189,13 +218,19 @@ ggplot(B1, aes(x = X1, y = X2,
   theme_minimal()
 ```
 
+This realisation of the data clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say "this realisation of the data", because tSNE has a hyper-parameter called "perplexity" which can produce variation. explain perplexity, describe the next figure, explain that it hasn't made any difference to the similarity, but the components are meaningless
+
+
+
 ```{r}
+set.seed(42)
+
 perplexity_iter <- function(x, p){
-  Rtsne(x, dims = 2, perplexity = p, max_iter = 1000, verbose = FALSE)
+  Rtsne(x, dims = 2, perplexity = p, max_iter = 2000, theta = 0.05, verbose = FALSE)
 }
 
 
-m <- lapply(c(5,7,9,11), function(p) perplexity_iter(x = A, p = p))
+m <- lapply(c(4,9,12), function(p) perplexity_iter(x = A, p = p))
 
 extract_ys <- function(m){
   perplexity <- m$perplexity
@@ -257,6 +292,9 @@ ggplot(B2, aes(x = `1`, y = `2`, shape = nationality, colour = `Prevotella melan
   theme_minimal()
 
 ```
+
+
+
 
 
 ```{r}

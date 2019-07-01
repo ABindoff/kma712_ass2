@@ -283,23 +283,23 @@ Shading datapoints by genera abundance (figure 7) gives a sense of the low-dimen
 # make a data frame that colours points one column/genera at a time
 foo <- function(x){
   d %>% mutate(col = scale(log(unlist(d[, x])), center = FALSE),
-               shade = x,
+               Genus = x,
                     Y1 = m2$Y[, 1],
                     Y2 = m2$Y[, 2])
   
 }
 
-k <- lapply(names(d[, 9:25]), foo)
+k <- lapply(names(d[, 9:30]), foo)
 k <- dplyr::bind_rows(k)
 ```
-```{r tsne_shading, echo = TRUE, fig.cap = fig.7}
-ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = col)) +
+
+```{r tsne_shading_plotly, fig.cap = fig.7}
+p <- ggplot(k, aes(x = Y1, y = Y2, frame = Genus, shape = nationality, colour = col)) +
   geom_point(size = 5) +
-  scico::scale_colour_scico(palette = "vik", name = "Abundance log(z)") +
-  theme_minimal() +
-  transition_states(shade) +
-  ease_aes('sine-in-out') +
-  labs(title = 'Genus shading = {closest_state}')
+  scico::scale_color_scico(palette = "vik", name = "Abundance log(z)") +
+  theme_minimal()
+
+plotly::ggplotly(p)
 
 ```
 

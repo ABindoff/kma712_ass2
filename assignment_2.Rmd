@@ -2,9 +2,12 @@
 title: "KMA712 Assignment 2"
 author: "Bindoff, A."
 output: html_document
+bibliography: ass2.bib
 ---
 
 `r Sys.time()`
+
+Student number 134323  
 
 3 week Extension granted (email correspondence 12th June 2019)  
 
@@ -58,13 +61,10 @@ pseq <- core(dietswap, detection = 50, prevalence = .4)
 # choose sample subset, first sample collection pre-intervention
 pseq2 <- subset_samples(pseq, group == "HE" & timepoint.within.group == 1)
 
-# normative western adults for comparison
-data(atlas1006)
-pseq3 <- atlas1006 %>%
-          subset_samples(DNA_extraction_method == "r") %>%
+# aggregate by phyla
+pseq3 <- pseq2 %>%
           aggregate_taxa(level = "Phylum") %>%  
           microbiome::transform(transform = "compositional")
-
 ```
 
 ```{r}
@@ -87,7 +87,7 @@ tab.1 <- table_nums(name = "tab_1",
                     caption = "Demographics, African American (AAM) and rural African (AFR) participants")
 fig_nums <- captioner::captioner(prefix = "Figure")
 fig.1 <- fig_nums(name = "fig_1",
-                  caption = "Abundance of each taxa, sorted by bacteroidetes")
+                  caption = "Abundance of phyla, sorted by bacteroidetes")
 
 fig.2 <- fig_nums(name = "fig_2",
                   caption = "Abundance of genera in each sample, sorted by study groups")
@@ -95,7 +95,26 @@ fig.2 <- fig_nums(name = "fig_2",
 fig.3 <- fig_nums(name = "fig_3",
                   caption = "Average abundance of genera for each BMI group")
 
+fig.4 <- fig_nums(name = "fig_4",
+                  caption = "tSNE ordination of genera similarity in two-dimensions")
+
+fig.5 <- fig_nums(name = "fig_5",
+                  caption = "tSNE ordination of sample similarity by all taxa, shaded by abundance of Prevotella melaninogenica. Shapes show nationality of participant")
+
+fig.6 <- fig_nums(name = "fig_6",
+                  caption = "Animation showing robustness to varying perplexity. Note that similarities are preserved but scales are not")
+
+fig.7 <- fig_nums(name = "fig_7",
+                  caption = "Animated tSNE with perplexity = 9, theta = .05, 5000 iterations. Shading varies by genus, abundances are log-transformed and standardized by dividing by SD of each genus")
+
+fig.8 <- fig_nums(name = "fig_8",
+                  caption = "Heatmap of standardized (but not centered) abundance of genera. Samples and genera sorted using classical multidimensional scaling. Sample labels coloured by nationality (AAM in red, AFR in black)")
+
+
+
 ```
+
+## Sample demographics
 
 `r table_nums('tab_1')`
 
@@ -105,17 +124,15 @@ table1(~ sex +  bmi_group | nationality, d)
 
 ```
   
+## Figures
   
-`r fig_nums('fig_1')`
-
-
 ```{r fig_1, fig.cap = fig.1}
 theme_set(theme_bw(21))
 p <- pseq3 %>%
     plot_composition(sample.sort = "Bacteroidetes", otu.sort = "abundance", alpha = 0.3) +
          # Set custom colors
-          scale_fill_manual(values = default_colors("Phylum")[taxa(pseq3)]) +
-  facet_wrap(~Tax, scales = "free_y") +
+        scale_fill_manual(values = pal, name = "Phylum") +
+  facet_grid(~Tax, scales = "free_y") +
   theme(text = element_text(size = 8),
     axis.text.x = element_blank())
 
@@ -124,9 +141,8 @@ print(p)
 
 ```
 
-Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of genera. Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
+Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of genera (figure 2). Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
 
-`r fig_nums('fig_2')`
 
 ```{r genera, fig.cap = fig.2}
 
@@ -136,7 +152,7 @@ p <- plot_composition(pseq2,
                       sample.sort = "nationality",
                       x.label = "nationality") +
      guides(fill = guide_legend(ncol = 1)) +
-   scale_fill_manual(values = pal, name = "Genera") +
+   scale_fill_manual(values = pal, name = "Genus") +
      scale_y_percent() +
      labs(x = "Samples", y = "Relative abundance (%)",
                                    title = "Relative abundance data",
@@ -149,9 +165,7 @@ p <- plot_composition(pseq2,
 print(p)  
 ```
 
-Averaging abundance by BMI group shows a greater abundance of *Prevotella melaninogenica* in lean participants, but Table 1 shows more lean rural Africans than African Americans so this pattern must be interpreted with caution.  
-
-`r fig_nums('fig_3')`  
+Averaging abundance by BMI group shows a greater abundance of *Prevotella melaninogenica* in lean participants (figure 3), but Table 1 shows more lean rural Africans than African Americans so this pattern must be interpreted with caution. Additionally, more abundant taxa visually dominate the plots, while greater differences in relative abundance may be less obvious for less abundant taxa.  
 
 ```{r bmi_group, fig.cap = fig.3}
 
@@ -164,14 +178,16 @@ p <- plot_composition(pseq2,
 print(p)
 ```
 
-*Ordination* reduces high-dimension data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
+## Ordination  
 
-We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
+*Ordination* reduces high-dimensional data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
 
-```{r}
+We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4).  
+
+```{r echo = TRUE}
 library(Rtsne)
 library(vegan)
-set.seed(42)
+set.seed(42) # for reproducibility
 
 # distance matrix (sample similarities)
 ps <- microbiome::transform(pseq2, "hellinger")
@@ -182,17 +198,19 @@ m1 <- Rtsne(dm, dims = 2, perplexity = 7, theta = 0.1, max_iter = 5000, verbose 
 proj <- m1$Y
 rownames(proj) <- rownames(otu_table(ps))
 proj <- tibble::rownames_to_column(as.data.frame(proj)) # so we can use rownames as labels
-
-ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
-  geom_text(nudge_y = -1.5, size = 2.5) +
-  geom_point()
 ```
 
-Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In fig______ we plot the ordination using symbols for nationality and shade with a genera of interest.  
+```{r tsne1, fig.cap = fig.4}
+ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
+  geom_text(nudge_y = -2, size = 2.5) +
+  geom_point() +
+  xlim(-100, 120)
+```
 
-```{r}
+Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In figure 5 we plot the ordination using symbols for nationality and shade with a genera of interest.  
+
+```{r echo = TRUE}
 A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))  # standardize across taxa
-
 
 set.seed(42)
 m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = .05, max_iter = 5000, verbose = F)
@@ -200,7 +218,8 @@ m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = .05, max_iter = 5000, verbose =
 # put results in data.frame for plotting
 B1 <- data.frame(d,
                  m2$Y)
-
+```
+```{r tsne2, fig.cap = fig.5}
 ggplot(B1, aes(x = X1, y = X2,
                shape = nationality,
                colour = `Prevotella.melaninogenica.et.rel.`)) +
@@ -213,9 +232,9 @@ This realisation of the data clearly shows two clusters, one composed entirely o
 
 Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE (in the above example *theta* = 0.05) and *theta* in (0, 1] being an approximation. The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
 
-An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure ___ shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
+An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure 6 shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
 
-```{r}
+```{r echo = TRUE}
 set.seed(42)
 
 perplexity_iter <- function(x, p){
@@ -236,7 +255,7 @@ k <- bind_rows(lapply(m, extract_ys))
 
 ```
 
-```{r}
+```{r tsne_perplexity, echo = TRUE, fig.cap = fig.6}
 # animate to show effect of varying perplexity (similarity preserved, absolute scale not informative)
 library(gganimate)
 ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
@@ -253,9 +272,9 @@ ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melanino
 How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences [@maaten2008visualizing],
 $$\sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
 
-Shading datapoints by genera abundance gives a sense of the low-dimensional spatial relationships between them.  
+Shading datapoints by genera abundance (figure 7) gives a sense of the low-dimensional spatial relationships between them.  
 
-```{r}
+```{r echo = TRUE}
 
 # make a data frame that colours points one column/genera at a time
 foo <- function(x){
@@ -268,19 +287,21 @@ foo <- function(x){
 
 k <- lapply(names(d[, 9:25]), foo)
 k <- dplyr::bind_rows(k)
-
+```
+```{r tsne_shading, echo = TRUE, fig.cap = fig.7}
 ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = col)) +
   geom_point(size = 5) +
   scico::scale_colour_scico(palette = "vik", name = "Abundance log(z)") +
-  scale_shape_manual(name = "Nationality") +
   theme_minimal() +
   transition_states(shade) +
   ease_aes('sine-in-out') +
-  labs(title = 'Taxa shading = {closest_state}')
+  labs(title = 'Genus shading = {closest_state}')
 
 ```
 
-```{r}
+A **heatmap** shows the relative abundance of genera over samples (figure 8). Sorting the samples and the taxa using an ordination method (here we have used classical multidimensional scaling) can reveal multivariate patterns in the data. The code snippet below shows a general method for producing a plot like this using almost any ordination method, but the `microbiome` package has plot methods with a variety of sorting methods.  
+
+```{r echo = TRUE}
 set.seed(42)
 
 # sort genera using Classical Multidimensional Scaling
@@ -299,13 +320,16 @@ proj <- tibble::rownames_to_column(as.data.frame(proj)) %>% arrange(proj)
 B1 <- data.frame(d,
                  m3.Y = m3[,1]) %>%
   arrange(m3.Y) %>%  # arrange samples by ordination provided in m3.Y
-  mutate(sample = factor(sample, sample)) %>%
+  mutate(sample = factor(sample, sample)) %>%  # make levels the same as arranged order
   reshape2::melt(id.vars = c("subject", "sex", "sample", "nationality", "group", "timepoint", "timepoint.within.group", "bmi_group", "m3.Y")) %>%
   group_by(variable) %>%
-  mutate(value = scale(value, center = FALSE)) %>%  # put all taxa on same scale
+  mutate(value = scale(value, center = FALSE)) %>%  # scale abundance for each genus
   ungroup() %>%
   mutate(variable2 = factor(gsub("\\.", " ", variable),
                             levels = gsub("\\.", " ", proj$rowname))) # arrange genera by ordination
+```
+
+```{r cmds_heatmap, fig.cap = fig.8}
 
 # plot a heatmap
 ggplot(B1, aes(x = variable2, y = sample,
@@ -316,9 +340,20 @@ ggplot(B1, aes(x = variable2, y = sample,
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
         axis.text.y = element_text(size = 6, colour = B1$nationality)) +
   ylab("Sample") +
-  xlab("Genera")
-
-
+  xlab("Genus")
 
 ```
 
+## Data and source code
+
+The R code for this reproducible workflow is stored in a public repository and can be cloned from  [github.com/ABindoff/kma712_ass2](https://github.com/ABindoff/kma712_ass2)
+
+
+# References
+
+
+## Session Info
+
+```{r}
+devtools::session_info()
+```

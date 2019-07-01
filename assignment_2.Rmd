@@ -21,13 +21,14 @@ library(captioner)
 
 data(dietswap)
 
-# Make sure we use functions from correct package
+# assure namespace issue is fixed
 transform <- microbiome::transform
 
 #devtools::install_github("hrbrmstr/hrbrthemes")
 library(hrbrthemes)
 library(gcookbook)
 library(tidyverse)
+library(phyloseq)
 
 
 shuffle <- function(x, set.seed = 42){
@@ -55,7 +56,6 @@ For this reproducible workflow we obtained data from the O'Keefe study, which wa
 pseq <- core(dietswap, detection = 50, prevalence = .4)
 
 # choose sample subset, first sample collection pre-intervention
-library(phyloseq)
 pseq2 <- subset_samples(pseq, group == "HE" & timepoint.within.group == 1)
 
 # normative western adults for comparison
@@ -136,7 +136,7 @@ p <- plot_composition(pseq2,
                       sample.sort = "nationality",
                       x.label = "nationality") +
      guides(fill = guide_legend(ncol = 1)) +
-   scale_fill_manual(values = pal) +
+   scale_fill_manual(values = pal, name = "Genera") +
      scale_y_percent() +
      labs(x = "Samples", y = "Relative abundance (%)",
                                    title = "Relative abundance data",
@@ -164,24 +164,14 @@ p <- plot_composition(pseq2,
 print(p)
 ```
 
-*Ordination* reduces high-dimension data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. In `r fig_nums('fig_3')`, *samples* are sorted along a single dimension using non-metric multi-dimensional scaling (NMDS) (on Bray-Curtis distances; see `help(neatsort)` for available methods in the `microbiome` R package), then plotted as a heatmap of abundances. This shows some distinct clusters of *Prevotella melaninogenica*, *Bacteroides vulgatus*, and *Oscillospira guillermondii*. However, no comparison between groups can be easily made from this.  
+*Ordination* reduces high-dimension data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
 
-```{r}
-p <- plot_composition(microbiome::transform(pseq2, "compositional"),
-                    plot.type = "heatmap",
-                    otu_sort = "neatmap") +
-  scico::scale_fill_scico(palette = "bilbao", name = "") +
-  theme(text = element_text(size = 8),
-        axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
-        axis.text.y = element_text(size = 5))
-print(p)
-```
-
-Continuing with the ordination theme, we now compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE). Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
+We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE). Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
 
 ```{r}
 library(Rtsne)
 library(vegan)
+set.seed(42)
 
 # distance matrix (sample similarities)
 ps <- microbiome::transform(pseq2, "hellinger")
@@ -190,26 +180,27 @@ dm <- vegdist(otu_table(ps), "euclidean")
 m1 <- Rtsne(dm, dims = 2, perplexity = 7, theta = 0.1, max_iter = 5000, verbose = F)
 
 proj <- m1$Y
-
 rownames(proj) <- rownames(otu_table(ps))
-
-proj <- tibble::rownames_to_column(as.data.frame(proj))
+proj <- tibble::rownames_to_column(as.data.frame(proj)) # so we can use rownames as labels
 
 ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
   geom_text(nudge_y = -1.5, size = 2.5) +
   geom_point()
 ```
 
-Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only abundance of taxa in each sample. In fig______ we plot the ordination using symbols for nationality and shade with a genera of interest.  
+Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In fig______ we plot the ordination using symbols for nationality and shade with a genera of interest.  
 
 ```{r}
-A <- apply(d[, c(9:25)], 2, scale)  # standardize across taxa
+A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))  # standardize across taxa
+
 
 set.seed(42)
-m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = 0.05, max_iter = 5000, verbose = F)
+m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = .05, max_iter = 5000, verbose = F)
 
+# put results in data.frame for plotting
 B1 <- data.frame(d,
                  m2$Y)
+
 ggplot(B1, aes(x = X1, y = X2,
                shape = nationality,
                colour = `Prevotella.melaninogenica.et.rel.`)) +
@@ -218,9 +209,11 @@ ggplot(B1, aes(x = X1, y = X2,
   theme_minimal()
 ```
 
-This realisation of the data clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say "this realisation of the data", because tSNE has a hyper-parameter called "perplexity" which can produce variation. explain perplexity, describe the next figure, explain that it hasn't made any difference to the similarity, but the components are meaningless
+This realisation of the data clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say *"this realisation of the data"*, because tSNE is a stochastic algorithm and a different throw of the dice, with different parameters, can produce different low-dimensional representations of the data. The risk here is that users may choose a low-dimensional representation that supports their pre-conceived ideas (in this case, there are implied hypotheses about nationality and *Prevotela melaninogenica* that the figure appears to support). Some [hyper-]parameter sensitivity analysis is prudent.  
 
+Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE (in the above example *theta* = 0.05) and *theta* in (0, 1] being an approximation. The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
 
+An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data. Figure ___ shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
 
 ```{r}
 set.seed(42)
@@ -228,9 +221,8 @@ set.seed(42)
 perplexity_iter <- function(x, p){
   Rtsne(x, dims = 2, perplexity = p, max_iter = 2000, theta = 0.05, verbose = FALSE)
 }
-
-
-m <- lapply(c(4,9,12), function(p) perplexity_iter(x = A, p = p))
+# make a list of tSNE fits with varying perplexity
+m <- lapply(c(4, 7, 9, 12), function(p) perplexity_iter(x = A, p = p))
 
 extract_ys <- function(m){
   perplexity <- m$perplexity
@@ -239,11 +231,13 @@ extract_ys <- function(m){
   cbind(d, Y1, Y2, perplexity)
 }
 
+# put all the fits in a data frame for the animation
 k <- bind_rows(lapply(m, extract_ys))
 
 ```
 
 ```{r}
+# animate to show effect of varying perplexity (similarity preserved, absolute scale not informative)
 library(gganimate)
 ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
   geom_point(size = 4) +
@@ -256,9 +250,16 @@ ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melanino
 
 ```
 
+How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences,
+$$\sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
+
+Shading datapoints by genera abundance gives a sense of the low-dimensional spatial relationships between them.  
+
 ```{r}
+
+# make a data frame that colours points one column/genera at a time
 foo <- function(x){
-  d %>% mutate(col = scale(unlist(d[, x])),
+  d %>% mutate(col = scale(unlist(d[, x]), center = FALSE),
                shade = x,
                     Y1 = m2$Y[, 1],
                     Y2 = m2$Y[, 2])
@@ -278,6 +279,51 @@ ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = col)) +
 
 ```
 
+```{r}
+set.seed(42)
+
+# sort genera using Classical Multidimensional Scaling
+D <- dist(A, method = "euclidean")
+m3 <- cmdscale(D, k = 1)
+
+# sort samples using Classical Multidimensional Scaling
+m4 <- cmdscale(dm, k = 1)
+proj <- m4[,1]
+proj <- tibble::rownames_to_column(as.data.frame(proj)) %>% arrange(proj)
+
+
+
+
+# arrange samples and taxa by ordination above
+B1 <- data.frame(d,
+                 m3.Y = m3[,1]) %>%
+  arrange(m3.Y) %>%  # arrange samples by ordination provided in m3.Y
+  mutate(sample = factor(sample, sample)) %>%
+  reshape2::melt(id.vars = c("subject", "sex", "sample", "nationality", "group", "timepoint", "timepoint.within.group", "bmi_group", "m3.Y")) %>%
+  group_by(variable) %>%
+  mutate(value = scale(value, center = FALSE)) %>%  # put all taxa on same scale
+  ungroup() %>%
+  mutate(variable2 = factor(gsub("\\.", " ", variable),
+                            levels = gsub("\\.", " ", proj$rowname))) # arrange genera by ordination
+
+# plot a heatmap
+ggplot(B1, aes(x = variable2, y = sample,
+               fill = value)) +
+  geom_tile() +
+  scico::scale_fill_scico(palette = "bilbao", name = "Abundance (z)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+        axis.text.y = element_text(size = 6, colour = B1$nationality)) +
+  xlab("Sample") +
+  ylab("Genera")
+
+
+
+```
+
+
+
+
 
 
 ```{r}
@@ -296,28 +342,16 @@ ggplot(B2, aes(x = `1`, y = `2`, shape = nationality, colour = `Prevotella melan
 
 
 
+In `r fig_nums('fig_3')`, *samples* are sorted along a single dimension using non-metric multi-dimensional scaling (NMDS) (on Bray-Curtis distances; see `help(neatsort)` for available methods in the `microbiome` R package), then plotted as a heatmap of abundances. This shows some distinct clusters of *Prevotella melaninogenica*, *Bacteroides vulgatus*, and *Oscillospira guillermondii*. However, no comparison between groups can be easily made from this.  
 
 ```{r}
-
-h <- data.frame(d$nationality, A)
-
-m3 <- MASS::lda(d.nationality ~ ., h, method = "mle")
-m4 <- e1071::svm(d.nationality ~., h)
-
-
-h$LD1 <- predict(m3, h)$x
-h$lda_class <- predict(m3, h)$class
-h$svm <- predict(m4, h)
-h$bmi_group <- d$bmi_group
-
-xtabs(~lda_class + d.nationality, h)
-xtabs(~svm + d.nationality, h)
-
-
-ggplot(h, aes(y = LD1, x = d.nationality, colour = bmi_group)) +
-  ggbeeswarm::geom_quasirandom() +
-  theme_minimal()
-
+p <- plot_composition(microbiome::transform(pseq2, "compositional"),
+                    plot.type = "heatmap",
+                    otu_sort = "neatmap",
+                    sample.sort = "neatmap") +
+  scico::scale_fill_scico(palette = "bilbao", name = "") +
+  theme(text = element_text(size = 8),
+        axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 5))
+print(p)
 ```
-
-

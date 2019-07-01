@@ -166,7 +166,7 @@ print(p)
 
 *Ordination* reduces high-dimension data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
 
-We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE). Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
+We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar.  
 
 ```{r}
 library(Rtsne)
@@ -213,7 +213,7 @@ This realisation of the data clearly shows two clusters, one composed entirely o
 
 Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE (in the above example *theta* = 0.05) and *theta* in (0, 1] being an approximation. The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
 
-An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data. Figure ___ shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
+An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure ___ shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
 
 ```{r}
 set.seed(42)
@@ -250,7 +250,7 @@ ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melanino
 
 ```
 
-How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences,
+How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences [@maaten2008visualizing],
 $$\sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
 
 Shading datapoints by genera abundance gives a sense of the low-dimensional spatial relationships between them.  
@@ -259,7 +259,7 @@ Shading datapoints by genera abundance gives a sense of the low-dimensional spat
 
 # make a data frame that colours points one column/genera at a time
 foo <- function(x){
-  d %>% mutate(col = scale(unlist(d[, x]), center = FALSE),
+  d %>% mutate(col = scale(log(unlist(d[, x])), center = FALSE),
                shade = x,
                     Y1 = m2$Y[, 1],
                     Y2 = m2$Y[, 2])
@@ -271,7 +271,8 @@ k <- dplyr::bind_rows(k)
 
 ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = col)) +
   geom_point(size = 5) +
-  scico::scale_colour_scico(palette = "vik") +
+  scico::scale_colour_scico(palette = "vik", name = "Abundance log(z)") +
+  scale_shape_manual(name = "Nationality") +
   theme_minimal() +
   transition_states(shade) +
   ease_aes('sine-in-out') +
@@ -314,44 +315,10 @@ ggplot(B1, aes(x = variable2, y = sample,
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
         axis.text.y = element_text(size = 6, colour = B1$nationality)) +
-  xlab("Sample") +
-  ylab("Genera")
+  ylab("Sample") +
+  xlab("Genera")
 
 
 
 ```
 
-
-
-
-
-
-```{r}
-
-D <- dist(A)
-m2 <- cmdscale(D, k = 2)
-B2 <- as.data.frame(cbind(d, m2))
-
-ggplot(B2, aes(x = `1`, y = `2`, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
-  geom_point(size = 4) +
-  scico::scale_colour_scico(palette = "vik") +
-  theme_minimal()
-
-```
-
-
-
-
-In `r fig_nums('fig_3')`, *samples* are sorted along a single dimension using non-metric multi-dimensional scaling (NMDS) (on Bray-Curtis distances; see `help(neatsort)` for available methods in the `microbiome` R package), then plotted as a heatmap of abundances. This shows some distinct clusters of *Prevotella melaninogenica*, *Bacteroides vulgatus*, and *Oscillospira guillermondii*. However, no comparison between groups can be easily made from this.  
-
-```{r}
-p <- plot_composition(microbiome::transform(pseq2, "compositional"),
-                    plot.type = "heatmap",
-                    otu_sort = "neatmap",
-                    sample.sort = "neatmap") +
-  scico::scale_fill_scico(palette = "bilbao", name = "") +
-  theme(text = element_text(size = 8),
-        axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
-        axis.text.y = element_text(size = 5))
-print(p)
-```

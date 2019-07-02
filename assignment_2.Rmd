@@ -1,11 +1,11 @@
 ---
 title: "KMA712 Assignment 2"
 author: "Bindoff, A."
-output: 
-  html_document:
-    code_folding: "hide"
-    includes:
-      after_body: footer.html
+output:
+    html_document:
+          code_folding: hide
+          includes:
+            after_body: footer.html
 bibliography: ass2.bib
 ---
 
@@ -56,7 +56,8 @@ Colon cancer is a leading cause of cancer death in North America and Europe. Des
 In order to investigate differences in gut microbiota potentially caused by diet between AAM and AFR, O'Keefe and colleagues collected stool samples before and after a dietary intervention in age and sex matched samples of healthy AAM and AFR participants [@o2015fat]. A HITChip phylogenetic microarray was used to profile microbiota composition.  
 
 For this reproducible workflow we obtained data from the O'Keefe study, which was included in the `microbiome` R package [@lahti2019]. Data were prepared loosely following the tutorial [Introduction to the microbiome R package](http://microbiome.github.io/microbiome/Composition.html), filtering on pre-intervention and taking the first sample collected within each group in order to avoid pseudo-replication considerations. We also filtered on the most prevalent taxa to reduce the data in order to aid interpretation and reduce computation time.  
-
+  
+  
 ```{r echo = TRUE}
 # Use most prevalent taxa to speed up examples
 # detection threshold >50 otus, prevalence > .4
@@ -91,28 +92,28 @@ tab.1 <- table_nums(name = "tab_1",
                     caption = "Demographics, African American (AAM) and rural African (AFR) participants")
 fig_nums <- captioner::captioner(prefix = "Figure")
 fig.1 <- fig_nums(name = "fig_1",
-                  caption = "Abundance of phyla, sorted by bacteroidetes")
+                  caption = "Abundance of phyla, samples sorted by abundance of bacteroidetes")
 
 fig.2 <- fig_nums(name = "fig_2",
-                  caption = "Abundance of genera in each sample, sorted by study groups")
+                  caption = "Abundance of microbial species in each sample, sorted by study groups")
 
 fig.3 <- fig_nums(name = "fig_3",
-                  caption = "Average abundance of genera for each BMI group")
+                  caption = "Abundance of species averaged by BMI group")
 
 fig.4 <- fig_nums(name = "fig_4",
-                  caption = "tSNE ordination of genera similarity in two-dimensions")
+                  caption = "tSNE ordination of species composition similarity in two-dimensions")
 
 fig.5 <- fig_nums(name = "fig_5",
-                  caption = "tSNE ordination of sample similarity by all taxa, shaded by abundance of Prevotella melaninogenica. Shapes show nationality of participant")
+                  caption = "tSNE ordination of sample similarity by species composition, shaded by abundance of Prevotella melaninogenica. Shapes show nationality of participant")
 
 fig.6 <- fig_nums(name = "fig_6",
-                  caption = "Animation showing robustness to varying perplexity. Note that similarities are preserved but scales are not")
+                  caption = "Animation showing robustness of tSNE to varying perplexity. Note that similarities are preserved as clusters but scales are not")
 
 fig.7 <- fig_nums(name = "fig_7",
-                  caption = "Animated tSNE with perplexity = 9, theta = .05, 5000 iterations. Shading varies by genus, abundances are log-transformed and standardized by dividing by SD of each genus")
+                  caption = "Animated tSNE with perplexity = 9, theta = .05, 5000 iterations. Shading varies by microbial species, abundances are log-transformed and standardized by dividing by 1SD of each species")
 
 fig.8 <- fig_nums(name = "fig_8",
-                  caption = "Heatmap of standardized (but not centered) abundance of genera. Samples and genera sorted using classical multidimensional scaling. Sample labels coloured by nationality (AAM in red, AFR in black)")
+                  caption = "Heatmap of standardized (but not centered) abundance of species. Samples and species sorted using classical multidimensional scaling. Sample labels coloured by nationality (AAM in red, AFR in black)")
 
 
 
@@ -127,7 +128,9 @@ fig.8 <- fig_nums(name = "fig_8",
 table1(~ sex +  bmi_group | nationality, d)
 
 ```
-  
+    
+      
+      
 ## Figures
   
 ```{r fig_1, fig.cap = fig.1}
@@ -144,8 +147,10 @@ p <- pseq3 %>%
 print(p)
 
 ```
-
-Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of genera (figure 2). Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
+  
+    
+    
+Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of species (figure 2). Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
 
 
 ```{r genera, fig.cap = fig.2}
@@ -168,7 +173,8 @@ p <- plot_composition(pseq2,
         legend.key.height = unit(2, "mm"))
 print(p)  
 ```
-
+  
+  
 Averaging abundance by BMI group shows a greater abundance of *Prevotella melaninogenica* in lean participants (figure 3), but Table 1 shows more lean rural Africans than African Americans so this pattern must be interpreted with caution. Additionally, more abundant taxa visually dominate the plots, while greater differences in relative abundance may be less obvious for less abundant taxa.  
 
 ```{r bmi_group, fig.cap = fig.3}
@@ -186,7 +192,7 @@ print(p)
 
 *Ordination* reduces high-dimensional data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
 
-We compute a distance matrix of genera based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4).  
+We compute a distance matrix of species based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4).  
 
 ```{r echo = TRUE}
 library(Rtsne)
@@ -210,8 +216,10 @@ ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
   geom_point() +
   xlim(-100, 120)
 ```
-
-Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised statistical learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In figure 5 we plot the ordination using symbols for nationality and shade with a genera of interest.  
+  
+    
+    
+Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In figure 5 we plot the ordination using symbols for nationality and colour by abundance of a species of interest.  
 
 ```{r echo = TRUE}
 A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))  # standardize across taxa
@@ -231,12 +239,15 @@ ggplot(B1, aes(x = X1, y = X2,
   scico::scale_colour_scico(palette = "vik") +
   theme_minimal()
 ```
-
+  
+  
 This realisation of the data clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say *"this realisation of the data"*, because tSNE is a stochastic algorithm and a different throw of the dice, with different parameters, can produce different low-dimensional representations of the data. The risk here is that users may choose a low-dimensional representation that supports their pre-conceived ideas (in this case, there are implied hypotheses about nationality and *Prevotela melaninogenica* that the figure appears to support). Some [hyper-]parameter sensitivity analysis is prudent.  
 
-Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE (in the above example *theta* = 0.05) and *theta* in (0, 1] being an approximation. The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
+Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE and *theta* in (0, 1] being an approximation (in the above example *theta* = 0.05). The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
 
 An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure 6 shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
+  
+  
 
 ```{r echo = TRUE}
 set.seed(42)
@@ -272,7 +283,9 @@ ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melanino
   labs(title = 'Perplexity = {closest_state}')
 
 ```
-
+  
+  
+  
 How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences [@maaten2008visualizing],
 $$\sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
 
@@ -302,9 +315,12 @@ p <- ggplot(k, aes(x = Y1, y = Y2, frame = Genus, shape = nationality, colour = 
 plotly::ggplotly(p)
 
 ```
-
-A **heatmap** shows the relative abundance of genera over samples (figure 8). Sorting the samples and the taxa using an ordination method (here we have used classical multidimensional scaling) can reveal multivariate patterns in the data. The code snippet below shows a general method for producing a plot like this using almost any ordination method, but the `microbiome` package has plot methods with a variety of sorting methods.  
-
+  
+    
+    
+A **heatmap** shows the relative abundance of species over samples (figure 8). Sorting the samples and the taxa using an ordination method (here we have used classical multidimensional scaling) can reveal multivariate patterns in the data. The code snippet below shows a general method for producing a plot like this using almost any ordination method. The `microbiome` package has plot methods with a few commonly used distance and ordination methods.  
+  
+  
 ```{r echo = TRUE}
 set.seed(42)
 
@@ -347,7 +363,8 @@ ggplot(B1, aes(x = variable2, y = sample,
   xlab("Genus")
 
 ```
-
+  
+  
 ## Data and source code
 
 The R code for this reproducible workflow is stored in a public repository and can be cloned from  [github.com/ABindoff/kma712_ass2](https://github.com/ABindoff/kma712_ass2)

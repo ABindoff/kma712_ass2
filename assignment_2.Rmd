@@ -4,8 +4,6 @@ author: "Bindoff, A."
 output:
     html_document:
           code_folding: hide
-          includes:
-            after_body: footer.html
 bibliography: ass2.bib
 ---
 
@@ -132,8 +130,8 @@ table1(~ sex +  bmi_group | nationality, d)
     
       
       
-## Figures
-  
+## Relative Abundance
+
 ```{r fig_1, fig.cap = fig.1}
 theme_set(theme_bw(21))
 p <- pseq3 %>%
@@ -356,7 +354,7 @@ Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ 
 $$C = \sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
 <br>  
 
-tSNE follows a very similar idea, utilising the joint probability distribution (rather than the conditional) which is faster to compute, as it has a simpler gradient. The `Rtsne` package used in this workflow utilises a variant of the Barnes-Hut algorithm to approximate the gradient [@van2014accelerating].  
+tSNE follows a very similar idea, utilising the joint probability distribution (rather than the conditional) which speeds computation as it has a simpler gradient. The `Rtsne` package used in this workflow utilises a variant of the Barnes-Hut algorithm to approximate the gradient [@van2014accelerating].  
 
 Embeddings are sensitive to scale, and so careful consideration should be given to how abundance is measured. In these examples, a Euclidean distance matrix was computed but for other data other measures might be more appropriate. Outliers may be particularly influential, because the attraction or repulsion between neighbours follows a power-law function.  
 
@@ -393,7 +391,7 @@ plotly::ggplotly(p)
 
 ## Discussion
 
-In this workflow several methods for exploring and understanding multivariate patterns in species composition data, graphically, are presented. There are some unique challenges in dealing with species composition data. Some of the problems of multivariate data analysis are well known and discussed extensively in [@tabachnick2007using], however the less obvious major problem in species composition data is that it *is compositional*. Because the sum of components is always constrained to a constant (*e.g* 1 in the case of proportions), spurious correlations may result and statistical methods designed for unconstrained sample spaces may not be appropriate (for a discussion in the context of microbiome data see [@gloor2016compositional]). This workflow makes little attempt to address these issues because it is designed to be exploratory, not confirmatory. Nevertheless, it does permit (within the constraints of domain-specific knowledge) hypothesis generation and provides some tools to aid in the exploration of the species abundance behind the embeddings.  
+In this workflow several graphical methods for exploring and understanding multivariate patterns in species composition data are presented. There are some unique challenges in dealing with species composition data. Some of the problems of multivariate data analysis are well known and discussed extensively in @tabachnick2007using, however the less obvious major analysis problem in species composition data is that it *is compositional*. Because the sum of components is always constrained to a constant (*e.g* 1 in the case of proportions), spurious correlations may result and statistical methods designed for unconstrained sample spaces may not be appropriate (for a discussion in the context of microbiome data see @gloor2016compositional). This workflow makes little attempt to address these issues because it is designed to be exploratory, not confirmatory. Nevertheless, it does permit (within the constraints of domain-specific knowledge) hypothesis generation and provides some tools to aid in the exploration of lower-dimensional species abundance embeddings.  
 
 ## Data and source code
 

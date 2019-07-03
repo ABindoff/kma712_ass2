@@ -101,19 +101,20 @@ fig.3 <- fig_nums(name = "fig_3",
                   caption = "Abundance of species averaged by BMI group")
 
 fig.4 <- fig_nums(name = "fig_4",
-                  caption = "tSNE ordination of species composition similarity in two-dimensions")
+                  caption = "Heatmap of standardized (but not centered) abundance of species. Samples and species sorted using classical multidimensional scaling. Sample labels coloured by nationality (AAM in red, AFR in black)")
 
 fig.5 <- fig_nums(name = "fig_5",
-                  caption = "tSNE ordination of sample similarity by species composition, shaded by abundance of Prevotella melaninogenica. Shapes show nationality of participant")
+                  caption = "tSNE clustering, similarity of species composition in two-dimensions")
 
 fig.6 <- fig_nums(name = "fig_6",
-                  caption = "Animation showing robustness of tSNE to varying perplexity. Note that similarities are preserved as clusters but scales are not")
+                  caption = "tSNE ordination of sample similarity by species composition, shaded by abundance of Prevotella melaninogenica. Shapes show nationality of participant")
 
 fig.7 <- fig_nums(name = "fig_7",
-                  caption = "Animated tSNE with perplexity = 9, theta = .05, 5000 iterations. Shading varies by microbial species, abundances are log-transformed and standardized by dividing by 1SD of each species")
+                  caption = "Animation showing robustness of tSNE to varying perplexity. Note that similarities are preserved as clusters but scales are not")
 
 fig.8 <- fig_nums(name = "fig_8",
-                  caption = "Heatmap of standardized (but not centered) abundance of species. Samples and species sorted using classical multidimensional scaling. Sample labels coloured by nationality (AAM in red, AFR in black)")
+                  caption = "Animated tSNE with perplexity = 9, theta = .05, 5000 iterations. Shading varies by microbial species, abundances are log-transformed and standardized by dividing by 1SD of each species")
+
 
 
 
@@ -150,8 +151,6 @@ print(p)
   
     
     
-Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of species (figure 2). Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.  
-
 
 ```{r genera, fig.cap = fig.2}
 
@@ -174,6 +173,10 @@ p <- plot_composition(pseq2,
 print(p)  
 ```
   
+<br> <br>
+
+Relative abundance of core taxa sorted by study group (AAM and AFR) shows differential abundance of species (figure 2). Note relative abundance of *Prevotella melaninogenica* (shaded in pink), which is more abundant in the AFR group.   
+
   
 Averaging abundance by BMI group shows a greater abundance of *Prevotella melaninogenica* in lean participants (figure 3), but Table 1 shows more lean rural Africans than African Americans so this pattern must be interpreted with caution. Additionally, more abundant taxa visually dominate the plots, while greater differences in relative abundance may be less obvious for less abundant taxa.  
 
@@ -187,145 +190,32 @@ p <- plot_composition(pseq2,
         legend.key.height = unit(4, "mm"))
 print(p)
 ```
-
+ <br> <br>  
+ 
 ## Ordination  
 
-*Ordination* reduces high-dimensional data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart. 
+*Ordination* reduces high-dimensional data to lower-dimensional data, such that objects that are similar to each other are projected onto a lower-dimensional space 'nearer' to each other and objects that are dissimilar are projected further apart.  
 
-We compute a distance matrix of species based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4).  
+### Heatmap
 
+A **heatmap** shows the standardised-log-abundance of species over samples (figure 4). Sorting the samples and the taxa using an ordination method (here we have used classical multidimensional scaling in one-dimension) can reveal (multivariate) patterns in species composition. Note the relatively high abundance of *Prevotella* genus in rural African samples and *Bacteriodetes* phyla in African American samples.  
+
+The code snippet below shows a general method for producing a plot like this using almost any ordination method. The `microbiome` package [@lahti2019] has plot methods with a few commonly used distance and ordination methods.  
+  
+  
 ```{r echo = TRUE}
-library(Rtsne)
 library(vegan)
-set.seed(42) # for reproducibility
+set.seed(42)
+
+# standardise log-abundances across taxa
+A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))
 
 # distance matrix (sample similarities)
 ps <- microbiome::transform(pseq2, "hellinger")
 dm <- vegdist(otu_table(ps), "euclidean")
 
-m1 <- Rtsne(dm, dims = 2, perplexity = 7, theta = 0.1, max_iter = 5000, verbose = F)
-
-proj <- m1$Y
-rownames(proj) <- rownames(otu_table(ps))
-proj <- tibble::rownames_to_column(as.data.frame(proj)) # so we can use rownames as labels
-```
-
-```{r tsne1, fig.cap = fig.4}
-ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
-  geom_text(nudge_y = -2, size = 2.5) +
-  geom_point() +
-  xlim(-100, 120)
-```
-  
-    
-    
-Using a similar approach, we ordinate samples on two dimensions using tSNE. This could be considered an *unsupervised learning* method, because tSNE doesn't know about nationality, BMI etc, only (standardized) abundance of taxa in each sample. In figure 5 we plot the ordination using symbols for nationality and colour by abundance of a species of interest.  
-
-```{r echo = TRUE}
-A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))  # standardize across taxa
-
-set.seed(42)
-m2 <- Rtsne(A, dims = 2, perplexity = 9, theta = .05, max_iter = 5000, verbose = F)
-
-# put results in data.frame for plotting
-B1 <- data.frame(d,
-                 m2$Y)
-```
-```{r tsne2, fig.cap = fig.5}
-ggplot(B1, aes(x = X1, y = X2,
-               shape = nationality,
-               colour = `Prevotella.melaninogenica.et.rel.`)) +
-  geom_point(size = 3) +
-  scico::scale_colour_scico(palette = "vik") +
-  theme_minimal()
-```
-  
-  
-This realisation of the data clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say *"this realisation of the data"*, because tSNE is a stochastic algorithm and a different throw of the dice, with different parameters, can produce different low-dimensional representations of the data. The risk here is that users may choose a low-dimensional representation that supports their pre-conceived ideas (in this case, there are implied hypotheses about nationality and *Prevotela melaninogenica* that the figure appears to support). Some [hyper-]parameter sensitivity analysis is prudent.  
-
-Parameters to tune include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE and *theta* in (0, 1] being an approximation (in the above example *theta* = 0.05). The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
-
-An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure 6 shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
-  
-  
-
-```{r echo = TRUE}
-set.seed(42)
-
-perplexity_iter <- function(x, p){
-  Rtsne(x, dims = 2, perplexity = p, max_iter = 2000, theta = 0.05, verbose = FALSE)
-}
-# make a list of tSNE fits with varying perplexity
-m <- lapply(c(4, 7, 9, 12), function(p) perplexity_iter(x = A, p = p))
-
-extract_ys <- function(m){
-  perplexity <- m$perplexity
-  Y1 <- m$Y[,1]
-  Y2 <- m$Y[,2]
-  cbind(d, Y1, Y2, perplexity)
-}
-
-# put all the fits in a data frame for the animation
-k <- bind_rows(lapply(m, extract_ys))
-
-```
-
-```{r tsne_perplexity, echo = TRUE, fig.cap = fig.6}
-# animate to show effect of varying perplexity (similarity preserved, absolute scale not informative)
-library(gganimate)
-ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
-  geom_point(size = 4) +
-  scico::scale_colour_scico(palette = "vik") +
-  theme_minimal() +
-  transition_states(perplexity) +
-  ease_aes('linear') +
-  view_follow() +
-  labs(title = 'Perplexity = {closest_state}')
-
-```
-  
-  
-  
-How does tSNE achieve this? Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences [@maaten2008visualizing],
-$$\sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
-
-Shading datapoints by genera abundance (figure 7) gives a sense of the low-dimensional spatial relationships between them.  
-
-```{r echo = TRUE}
-
-# make a data frame that colours points one column/genera at a time
-foo <- function(x){
-  d %>% mutate(col = scale(log(unlist(d[, x])), center = FALSE),
-               Genus = x,
-                    Y1 = m2$Y[, 1],
-                    Y2 = m2$Y[, 2])
-  
-}
-
-k <- lapply(names(d[, 9:30]), foo)
-k <- dplyr::bind_rows(k)
-```
-
-```{r tsne_shading_plotly, fig.cap = fig.7}
-p <- ggplot(k, aes(x = Y1, y = Y2, frame = Genus, shape = nationality, colour = col)) +
-  geom_point(size = 5) +
-  scico::scale_color_scico(palette = "vik", name = "Abundance log(z)") +
-  theme_minimal()
-
-plotly::ggplotly(p)
-
-```
-  
-    
-    
-A **heatmap** shows the relative abundance of species over samples (figure 8). Sorting the samples and the taxa using an ordination method (here we have used classical multidimensional scaling) can reveal multivariate patterns in the data. The code snippet below shows a general method for producing a plot like this using almost any ordination method. The `microbiome` package has plot methods with a few commonly used distance and ordination methods.  
-  
-  
-```{r echo = TRUE}
-set.seed(42)
-
-# sort genera using Classical Multidimensional Scaling
-D <- dist(A, method = "euclidean")
+# sort species using Classical Multidimensional Scaling
+D <- vegdist(d[, c(9:25)], method = "euclidean")
 m3 <- cmdscale(D, k = 1)
 
 # sort samples using Classical Multidimensional Scaling
@@ -346,28 +236,174 @@ B1 <- data.frame(d,
   mutate(value = scale(value, center = FALSE)) %>%  # scale abundance for each genus
   ungroup() %>%
   mutate(variable2 = factor(gsub("\\.", " ", variable),
-                            levels = gsub("\\.", " ", proj$rowname))) # arrange genera by ordination
+                            levels = gsub("\\.", " ", proj$rowname)))#  arrange genera by ordination
+ 
 ```
 
-```{r cmds_heatmap, fig.cap = fig.8}
+```{r cmds_heatmap, fig.cap = fig.4}
 
 # plot a heatmap
 ggplot(B1, aes(x = variable2, y = sample,
-               fill = value)) +
+               fill = value, colour = nationality)) +
   geom_tile() +
   scico::scale_fill_scico(palette = "bilbao", name = "Abundance (z)") +
+  scale_colour_manual(values = c("brown", "grey50")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
-        axis.text.y = element_text(size = 6, colour = B1$nationality)) +
+        axis.text.y = element_text(size = 6)) +
+  #facet_wrap(~nationality) +
   ylab("Sample") +
   xlab("Genus")
 
 ```
+<br> <br>
+
+  
+### Two-dimensional clustering
+
+We compute a distance matrix of species based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4). There is broad agreement between the CMDS ordination used in figure 4 and the embedding in figure 5, with some notable exceptions (*e.g* *Prevotella* are close to *Parabacteroides* and far from *Oscillospira* in figure 5, and vice-versa in figure 4).  
+
+
+```{r echo = TRUE}
+library(Rtsne)
+set.seed(42) # for reproducibility
+
+m1 <- Rtsne(dm, dims = 2, perplexity = 7, theta = 0.1, max_iter = 5000, verbose = F)
+
+proj <- m1$Y
+rownames(proj) <- rownames(otu_table(ps))
+proj <- tibble::rownames_to_column(as.data.frame(proj)) # so we can use rownames as labels
+```
+
+```{r tsne1, fig.cap = fig.5}
+ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
+  geom_text(nudge_y = -2, size = 2.5) +
+  geom_point() +
+  xlim(-100, 120)
+```
+  
+<br> <br>    
   
   
+Using the same algorithm, we cluster samples according to microbial species composition (using standardized log-abundances), without reference to nationality, BMI, or other demographic variables (low-dimensional representation shown in figure 6). This could be considered an *unsupervised learning* method, as the tSNE algorithm cannot calibrate to labelled data.  
+
+```{r echo = TRUE}
+set.seed(11)
+m2 <- Rtsne(D, dims = 2, perplexity = 9, theta = .05, max_iter = 5000, verbose = F)
+
+# put results in data.frame for plotting
+B1 <- data.frame(d,
+                 m2$Y)
+```
+```{r tsne2, fig.cap = fig.6}
+ggplot(B1, aes(x = X1, y = X2,
+               shape = nationality,
+               colour = `Prevotella.melaninogenica.et.rel.`)) +
+  geom_point(size = 3) +
+  scico::scale_colour_scico(palette = "vik") +
+  theme_minimal()
+```
+  
+<br> <br>
+
+The realisation of the data in figure 6 clearly shows two clusters, one composed entirely of samples from African-Americans with low abundance of *Prevotela melaninogenica* and the other composed mostly of rural Africans with high abundance of *Prevotela melaninogenica*. I say *"this realisation of the data"*, because tSNE is a stochastic algorithm and a different throw of the dice, with different parameters, can produce different low-dimensional representations of the data. The risk here is that users may choose a low-dimensional representation that supports their pre-conceived ideas (in this case, there are implied hypotheses about nationality and *Prevotela melaninogenica* that the figure appears to support). Some [hyper-]parameter sensitivity analysis is prudent.  
+
+Parameters to tune and test include learning rate, max iterations, and perplexity (which we will describe in the following paragraph). Learning rate (*theta* in the `Rtsne` package) makes a trade-off between speed and accuracy, with *theta* = 0 being 'pure' tSNE and *theta* in (0, 1] being an approximation (in the above example *theta* = 0.05). The number of iterations can be assessed by confirming that the algorithm has converged (i.e that the clusters represented in low-dimensional space are stable when the number of iterations is increased by some non-trivial amount).
+
+An additional hyper-parameter, somewhat unique to tSNE, is *perplexity* which aims to balance representation of global and local relationships in the data [@wattenberg2016how]. Figure 7 shows robustness to choice of perplexity. It is important to note that tSNE aims to preserve distance relationships between objects, such that objects that are similar cluster together in low-dimensional space and objects that are different are further apart. It does not preserve Euclidean distances in high-dimensional space, and thus the scales are meaningless (which is clear in the animation).  
+  
+  
+
+```{r echo = TRUE}
+set.seed(42)
+
+perplexity_iter <- function(x, p){
+  Rtsne(x, dims = 2, perplexity = p, max_iter = 2000, theta = 0.05, verbose = FALSE)
+}
+# make a list of tSNE fits with varying perplexity
+m <- lapply(c(4, 7, 9, 12), function(p) perplexity_iter(x = D, p = p))
+
+extract_ys <- function(m){
+  perplexity <- m$perplexity
+  Y1 <- m$Y[,1]
+  Y2 <- m$Y[,2]
+  cbind(d, Y1, Y2, perplexity)
+}
+
+# put all the fits in a data frame for the animation
+k <- bind_rows(lapply(m, extract_ys))
+
+```
+
+```{r tsne_perplexity, echo = TRUE, fig.cap = fig.7}
+# animate to show effect of varying perplexity (similarity preserved, absolute scale not informative)
+library(gganimate)
+ggplot(k, aes(x = Y1, y = Y2, shape = nationality, colour = `Prevotella melaninogenica et rel.`)) +
+  geom_point(size = 4) +
+  scico::scale_colour_scico(palette = "vik") +
+  theme_minimal() +
+  transition_states(perplexity) +
+  ease_aes('linear') +
+  view_follow() +
+  labs(title = 'Perplexity = {closest_state}')
+
+```
+  <br>  
+  
+## How does tSNE work?  
+
+Stochastic Neighbour Embedding (SNE) defines the similarity of datapoints $x_i$ and $x_j$ as the conditional probability, $p_{j|i}$, that $x_i$ would 'choose' $x_j$ as its neighbour if neighbour choices were made in proportion to their probability density under a Gaussian centered at $x_i$ in high-dimensional space. A similar conditional probability, $q_{j|i}$ is computed for low-dimensional counter-parts, $y_i$ and $y_j$. Using gradient descent, SNE minimises the sum of Kullback-Leibler divergences $C$ [@maaten2008visualizing],
+$$C = \sum_i \sum_j p_{j|i}log \frac {p_{j|i}}{q_{j|i}} $$
+<br>  
+
+tSNE follows a very similar idea, utilising the joint probability distribution (rather than the conditional) which is faster to compute, as it has a simpler gradient. The `Rtsne` package used in this workflow utilises a variant of the Barnes-Hut algorithm to approximate the gradient [@van2014accelerating].  
+
+Embeddings are sensitive to scale, and so careful consideration should be given to how abundance is measured. In these examples, a Euclidean distance matrix was computed but for other data other measures might be more appropriate. Outliers may be particularly influential, because the attraction or repulsion between neighbours follows a power-law function.  
+
+## Species abundance mapped to low-dimensional space
+
+Colouring datapoints by (standardised-log) species abundance (figure 8) gives a sense of the embedded relationships between them.  
+
+```{r echo = TRUE}
+
+# make a data frame that colours points one column/genera at a time
+foo <- function(x){
+  d %>% mutate(col = scale(log(unlist(d[, x])), center = FALSE),
+               Genus = x,
+                    Y1 = m2$Y[, 1],
+                    Y2 = m2$Y[, 2])
+  
+}
+
+k <- lapply(names(d[, 9:30]), foo)
+k <- dplyr::bind_rows(k)
+```
+
+```{r tsne_shading_plotly, fig.cap = fig.8}
+p <- ggplot(k, aes(x = Y1, y = Y2, frame = Genus, shape = nationality, colour = col)) +
+  geom_point(size = 5) +
+  scico::scale_color_scico(palette = "vik", name = "Abundance log(z)") +
+  theme_minimal()
+
+plotly::ggplotly(p)
+
+```
+  
+<br> <br>
+
+## Discussion
+
+In this workflow several methods for exploring and understanding multivariate patterns in species composition data, graphically, are presented. There are some unique challenges in dealing with species composition data. Some of the problems of multivariate data analysis are well known and discussed extensively in [@tabachnick2007using], however the less obvious major problem in species composition data is that it *is compositional*. Because the sum of components is always constrained to a constant (*e.g* 1 in the case of proportions), spurious correlations may result and statistical methods designed for unconstrained sample spaces may not be appropriate (for a discussion in the context of microbiome data see [@gloor2016compositional]). This workflow makes little attempt to address these issues because it is designed to be exploratory, not confirmatory. Nevertheless, it does permit (within the constraints of domain-specific knowledge) hypothesis generation and provides some tools to aid in the exploration of the species abundance behind the embeddings.  
+
 ## Data and source code
 
 The R code for this reproducible workflow is stored in a public repository and can be cloned from  [github.com/ABindoff/kma712_ass2](https://github.com/ABindoff/kma712_ass2)
 
+## Session Info
+
+```{r}
+print(sessionInfo())
+```
 
 # References
+

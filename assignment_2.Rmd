@@ -26,15 +26,14 @@ library(captioner)
 
 data(dietswap)
 
-# assure namespace issue is fixed
-transform <- microbiome::transform
-
 #devtools::install_github("hrbrmstr/hrbrthemes")
 library(hrbrthemes)
 library(gcookbook)
 library(tidyverse)
 library(phyloseq)
 
+# ensure namespace issue is fixed
+transform <- microbiome::transform
 
 shuffle <- function(x, set.seed = 42){
   set.seed(set.seed)
@@ -209,11 +208,11 @@ set.seed(42)
 A <- apply(d[, c(9:25)], 2, function(x) scale(log(x)))
 
 # distance matrix (sample similarities)
-ps <- microbiome::transform(pseq2, "hellinger")
+ps <- microbiome::transform(pseq2, "compositional")
 dm <- vegdist(otu_table(ps), "euclidean")
 
 # sort species using Classical Multidimensional Scaling
-D <- vegdist(d[, c(9:25)], method = "euclidean")
+D <- vegdist(d[, c(9:25)], "euclidean")  
 m3 <- cmdscale(D, k = 1)
 
 # sort samples using Classical Multidimensional Scaling

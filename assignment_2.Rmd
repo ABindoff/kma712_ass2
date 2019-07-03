@@ -258,7 +258,7 @@ ggplot(B1, aes(x = variable2, y = sample,
   
 ### Two-dimensional clustering
 
-We compute a distance matrix of species based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4). There is broad agreement between the CMDS ordination used in figure 4 and the embedding in figure 5, with some notable exceptions (*e.g* *Prevotella* are close to *Parabacteroides* and far from *Oscillospira* in figure 5, and vice-versa in figure 4).  
+We compute a distance matrix of species based on sample similarities then reduce these distances to a two-dimensional space using t-distributed stochastic neighbour embeddings (tSNE) [@maaten2008visualizing]. Taxa that appear in similar compositions in samples should be nearer to each other than taxa that are dissimilar (figure 4). There is broad agreement between the CMDS ordination used in figure 4 and the embedding in figure 5, with some notable exceptions (*e.g* *Prevotella* are close to *Butyrivibrio* and far from *Faecalibacterium* in figure 5, and vice-versa in figure 4).  
 
 
 ```{r echo = TRUE}
@@ -282,7 +282,7 @@ ggplot(proj, aes(x = V1, y = V2, label = rowname)) +
 <br> <br>    
   
   
-Using the same algorithm, we cluster samples according to microbial species composition (using standardized log-abundances), without reference to nationality, BMI, or other demographic variables (low-dimensional representation shown in figure 6). This could be considered an *unsupervised learning* method, as the tSNE algorithm cannot calibrate to labelled data.  
+Using the same algorithm, we cluster samples according to microbial species composition (using Euclidean distances), without reference to nationality, BMI, or other demographic variables (low-dimensional representation shown in figure 6). This could be considered an *unsupervised learning* method, as the tSNE algorithm cannot calibrate to labelled data.  
 
 ```{r echo = TRUE}
 set.seed(11)
